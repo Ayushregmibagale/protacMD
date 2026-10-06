@@ -74,7 +74,8 @@ def split(pdb_path, vhl_max, poi_min):
         elif rec == 'END':
             pass   # will add at end
 
-    protein_lines.append('TER\n')
+    if not protein_lines or not protein_lines[-1].startswith('TER'):
+        protein_lines.append('TER\n')
     protein_lines.append('END\n')
     protac_lines.append('END\n')
 
@@ -98,7 +99,7 @@ def split(pdb_path, vhl_max, poi_min):
     print(f'Wrote: {protein_out}')
     for c in sorted(chain_residues):
         rr = sorted(chain_residues[c])
-        label = {'A': 'VHL', 'B': 'ElonginB', 'C': 'ElonginC', 'D': 'DDR2/kinase'}.get(c, c)
+        label = {'A': 'VHL', 'B': 'ElonginB', 'C': 'ElonginC', 'D': 'kinase'}.get(c, c)
         print(f'  Chain {c} ({label}): res {rr[0]}-{rr[-1]}  ({len(rr)} residues)')
 
     print(f'Wrote: {protac_out}')
