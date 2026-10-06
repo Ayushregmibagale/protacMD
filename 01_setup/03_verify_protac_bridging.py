@@ -4,18 +4,19 @@ Quick sanity check: verify PROTAC is properly bridging in pRosettaC combined PDB
 Checks the rank1 representative for each POI in cluster_features.csv.
 
 Usage:
-    python verify_protac_bridging.py [--all]   # --all includes degraders too
+    python verify_protac_bridging.py [--all]
+    python verify_protac_bridging.py --runs-root /path/to/pRosettaC/runs
 """
 
 import sys
 import csv
 import os
 import argparse
+from pathlib import Path
 import numpy as np
 from scipy.spatial.distance import cdist
 
-NON_DEGRADERS = "/home/ayushregmibagale/PROTAC degradation Prediction/pRosettaC/runs/high_affinity_no_degradation"
-DEGRADERS     = "/home/ayushregmibagale/PROTAC degradation Prediction/pRosettaC/runs/high_affinity_degraders"
+_DEFAULT_RUNS_ROOT = Path.home() / "protac" / "pRosettaC" / "runs"
 
 
 def check(pdb_path, label):
@@ -27,9 +28,9 @@ def check(pdb_path, label):
                 if rec not in ('ATOM', 'HETATM'):
                     continue
                 chain = line[21]
-                rn = int(line[22:26])
                 x, y, z = float(line[30:38]), float(line[38:46]), float(line[46:54])
                 if chain == 'A':
+                    rn = int(line[22:26])
                     ca_atoms.append((rn, x, y, z))
                 elif chain == 'X':
                     cx.append([x, y, z])
@@ -53,7 +54,6 @@ def check(pdb_path, label):
 
     d_vhl = cdist(cx, vhl).min() if len(vhl) else 999
     d_kin = cdist(cx, kin).min() if len(kin) else 999
-    bridged = d_vhl < 10 and d_kin < 10
 
     # Degrader pRosettaC PatchDock results always have PROTAC in kinase pocket
     # (0-5 Å) but 20-32 Å from VHL — that is expected (VHL closes during MD).
@@ -80,15 +80,23 @@ def check_poi(base, poi):
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--all', action='store_true', help='Also check degraders')
+    parser.add_argument('--runs-root', default=str(_DEFAULT_RUNS_ROOT),
+                        help=f'Path to pRosettaC runs/ directory '
+                             f'(default: {_DEFAULT_RUNS_ROOT})')
     args = parser.parse_args()
+
+    runs_root = Path(args.runs_root)
+    non_deg = str(runs_root / 'high_affinity_no_degradation')
+    deg     = str(runs_root / 'high_affinity_degraders')
 
     all_ok = True
 
     print("\n=== Non-degraders ===")
     for poi in ['ABL1', 'AXL', 'EPHA2', 'MAP4K5', 'SLK']:
-        ok = check_poi(NON_DEGRADERS, poi)
+        ok = check_poi(non_deg, poi)
         if ok is False:
             all_ok = False
 
@@ -96,7 +104,7 @@ def main():
         print("\n=== Degraders ===")
         for poi in ['DDR2', 'MET', 'RIPK2', 'MAPK14', 'EPHB2',
                     'RIPK2_full', 'MAPK14_full']:
-            ok = check_poi(DEGRADERS, poi)
+            ok = check_poi(deg, poi)
             if ok is False:
                 all_ok = False
 
